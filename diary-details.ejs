@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title><%= list.title %> - 여행지 정보</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+        .button {
+            padding: 10px 20px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+        }
+        .content {
+            padding: 20px;
+        }
+        .details {
+            margin-top: 20px;
+        }
+        .comment {
+            margin-top: 20px;
+            border-top: 1px solid #ccc;
+            padding-top: 20px;
+        }
+        .comment-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .comment-item {
+            margin-bottom: 10px;
+        }
+        .comment-item p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><%= list.title %></h1>
+    </div>
+    <div class="content">
+        <img src="<%= list.photo_url %>" alt="<%= list.title %>" style="width: 100%" />
+        <div class="details">
+            <h2>내용</h2>
+            <p><%= list.content %></p>
+        </div>
+    </div>
+    <div class="button-container">
+        <button class="button" onclick="goBack()">뒤로가기</button>
+        <button class="button" id="deleteButton" onclick="deleteEntry('<%= list.diary_id %>')">삭제하기</button>
+        <button class="button" onclick="shareDiary('<%= list.diary_id %>')">공유하기</button>
+    </div>
+    <!-- 댓글 영역 -->
+    <div class="comment">
+        <h2>댓글</h2>
+        <ul class="comment-list" id="commentList">
+            <!-- 댓글 목록은 여기에 추가됩니다. -->
+        </ul>
+        <!-- 댓글 입력 폼 -->
+        <form id="commentForm">
+            <textarea id="commentContent" rows="4" cols="50" placeholder="댓글을 작성하세요..."></textarea>
+            <br>
+            <input type="hidden" id="diaryId" value="<%= list.diary_id %>"> <!-- hidden input 추가 -->
+            <button type="button" onclick="submitComment()">댓글 작성</button>
+        </form>
+    </div>
+    <script>
+        let diaryId = '<%= list.diary_id %>'; // 전역 변수로 diary_id 설정
+
+        function goBack() {
+            window.history.back();
+        }
+
+        function deleteEntry(diary_id) {
+            if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                fetch("/delete-diary", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ diary_id: diary_id })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert("항목이 삭제되었습니다.");
+                        window.location.href = "/diary-list";
+                    } else {
+                        alert("삭제 중 오류가 발생했습니다.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("삭제 중 오류가 발생했습니다.");
+                });
+            }
+        }
+
+        function fetchComments() {
+            fetch(`/comments/${diaryId}`)
+            .then(response => response.json())
+            .then(data => {
+                const commentList = document.getElementById('commentList');
+                commentList.innerHTML = '';
+                data.forEach(comment => {
+                    const commentItem = document.createElement('li');
+                    commentItem.className = 'comment-item';
+                    commentItem.innerHTML = `
+                        <p><strong>${comment.userId}</strong>: ${comment.content}</p>
+                    `;
+                    commentList.appendChild(commentItem);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('댓글을 불러오는 중 오류가 발생했습니다.');
+            });
+        }
+        
+        function shareDiary(diary_id) {
+            fetch("/share-diary", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ diary_id: diary_id })
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert("다이어리가 성공적으로 공유되었습니다!");
+                } else {
+                    alert("다이어리 공유 중 오류가 발생했습니다.");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("다이어리 공유 중 오류가 발생했습니다.");
+            });
+        }
+
+        function submitComment() {
+            const commentContent = document.getElementById('commentContent').value.trim();
+            if (commentContent === '') {
+                alert('댓글을 입력해주세요.');
+                return;
+            }
+
+            fetch('/submit-comment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    diary_id: diaryId, // 전역 변수 사용
+                    content: commentContent
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    fetchComments();
+                    document.getElementById('commentContent').value = '';
+                } else {
+                    alert('댓글 작성 중 오류가 발생했습니다.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('댓글 작성 중 오류가 발생했습니다.');
+            });
+        }
+
+        // 페이지 로드 시 댓글 목록을 불러옴
+        fetchComments();
+
+        // 댓글 폼 제출 이벤트 리스너 등록
+        document.getElementById('commentForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            submitComment();
+        });
+    </script>
+</body>
+</html>
